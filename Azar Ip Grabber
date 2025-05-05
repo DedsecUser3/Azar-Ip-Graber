@@ -1,7 +1,6 @@
 (function () {
-    const displayedIPs = new Set(); // Pour éviter les doublons
+    const displayedIPs = new Set(); 
 
-    // Créer le conteneur d'affichage
     const ipContainer = document.createElement('div');
     ipContainer.id = 'ip-container';
     Object.assign(ipContainer.style, {
@@ -32,7 +31,6 @@
     `;
     document.body.appendChild(ipContainer);
 
-    // Drag support
     const handle = ipContainer.querySelector("#drag-handle");
     let offsetX = 0, offsetY = 0;
     handle.onmousedown = function (e) {
@@ -47,14 +45,12 @@
         };
     };
 
-    // Boutons
     document.getElementById('clear-ip-list').onclick = () => {
         document.getElementById('ip-addresses').innerHTML = '';
         displayedIPs.clear();
     };
     document.getElementById('close-ip-container').onclick = () => ipContainer.remove();
 
-    // IP Detection Hook
     const origPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection;
     if (!origPeerConnection) return;
 
