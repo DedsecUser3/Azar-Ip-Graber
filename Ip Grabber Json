@@ -1,0 +1,117 @@
+(function () {
+    const displayedIPs = new Set(); // Pour éviter les doublons
+
+    // Créer le conteneur d'affichage
+    const ipContainer = document.createElement('div');
+    ipContainer.id = 'ip-container';
+    Object.assign(ipContainer.style, {
+        position: 'fixed',
+        top: '10px',
+        right: '10px',
+        width: '400px',
+        maxHeight: '500px',
+        overflowY: 'auto',
+        backgroundColor: '#f7f9fc',
+        border: '1px solid #ccc',
+        borderRadius: '12px',
+        padding: '20px',
+        zIndex: '10000',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '14px',
+        color: '#333',
+        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+        resize: 'both',
+    });
+    ipContainer.innerHTML = `
+        <div id="drag-handle" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; cursor: move;">
+            <h3 style="margin: 0; color: #007bff;">Detected IP Addresses</h3>
+            <button id="clear-ip-list" style="padding: 5px 10px; background: #dc3545; color: #fff; border: none; border-radius: 5px;">Clear</button>
+            <button id="close-ip-container" style="padding: 5px 10px; background: #dc3545; color: #fff; border: none; border-radius: 5px;">X</button>
+        </div>
+        <div id="ip-addresses"></div>
+    `;
+    document.body.appendChild(ipContainer);
+
+    // Drag support
+    const handle = ipContainer.querySelector("#drag-handle");
+    let offsetX = 0, offsetY = 0;
+    handle.onmousedown = function (e) {
+        offsetX = e.clientX - ipContainer.offsetLeft;
+        offsetY = e.clientY - ipContainer.offsetTop;
+        document.onmousemove = function (e) {
+            ipContainer.style.left = (e.clientX - offsetX) + 'px';
+            ipContainer.style.top = (e.clientY - offsetY) + 'px';
+        };
+        document.onmouseup = function () {
+            document.onmousemove = document.onmouseup = null;
+        };
+    };
+
+    // Boutons
+    document.getElementById('clear-ip-list').onclick = () => {
+        document.getElementById('ip-addresses').innerHTML = '';
+        displayedIPs.clear();
+    };
+    document.getElementById('close-ip-container').onclick = () => ipContainer.remove();
+
+    // IP Detection Hook
+    const origPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+    if (!origPeerConnection) return;
+
+    window.RTCPeerConnection = function (...args) {
+        const pc = new origPeerConnection(...args);
+        const originalAddIceCandidate = pc.addIceCandidate.bind(pc);
+
+        pc.addIceCandidate = async function (candidate, ...rest) {
+            try {
+                if (candidate && candidate.candidate) {
+                    const parts = candidate.candidate.split(' ');
+                    if (parts[7] === 'srflx') {
+                        const ip = parts[4];
+                        if (!displayedIPs.has(ip)) {
+                            displayedIPs.add(ip);
+
+                            const now = new Date().toLocaleTimeString();
+                            const ipDiv = document.createElement('div');
+                            ipDiv.style = 'background:#fff;border:1px solid #ddd;padding:10px;margin-bottom:10px;border-radius:6px';
+                            ipDiv.innerHTML = `<strong>Time:</strong> ${now}<br><strong>IP:</strong> ${ip}<br>Loading info...`;
+
+                            document.getElementById('ip-addresses').appendChild(ipDiv);
+
+                            // Fetch info
+                            try {
+                                const res = await fetch(`https://ipapi.co/${ip}/json/`);
+                                const data = await res.json();
+                                ipDiv.innerHTML = `
+                                    <strong>Time:</strong> ${now}<br>
+                                    <strong>IP:</strong> ${ip}<br>
+                                    <strong>City:</strong> ${data.city || 'Unknown'}<br>
+                                    <strong>ISP:</strong> ${data.org || 'Unknown'}<br>
+                                    <button style="margin-top:8px;padding:6px 10px;background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;">Copy</button>
+                                `;
+
+                                const btn = ipDiv.querySelector('button');
+                                btn.onclick = () => {
+                                    navigator.clipboard.writeText(ip);
+                                    btn.textContent = 'Copied!';
+                                    btn.style.background = '#28a745';
+                                    setTimeout(() => {
+                                        btn.textContent = 'Copy';
+                                        btn.style.background = '#007bff';
+                                    }, 2000);
+                                };
+                            } catch (err) {
+                                ipDiv.innerHTML += `<br><em>Could not load location info</em>`;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error parsing ICE candidate', e);
+            }
+            return originalAddIceCandidate(candidate, ...rest);
+        };
+
+        return pc;
+    };
+})();
