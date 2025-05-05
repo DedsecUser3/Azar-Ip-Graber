@@ -1,3 +1,5 @@
+language:javascript
+
 # 📡 IP Tracker Widget
 
 A lightweight, draggable browser widget that detects public IP addresses via WebRTC leaks and enriches them with location and ISP data using [ipapi.co](https://ipapi.co/).
